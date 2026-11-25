@@ -477,19 +477,21 @@ mod tests {
         );
         delegated_remove.authorization_actor = Some(ALICE);
         let removed = TestGroup::process(added.clone(), &delegated_remove).unwrap();
-        assert_members(&removed, G1, &[(ALICE, Access::manage()), (EVE, Access::read())]);
+        assert_members(
+            &removed,
+            G1,
+            &[(ALICE, Access::manage()), (EVE, Access::read())],
+        );
 
         // An explicit basis cannot turn a member's leave into a manager removal.
-        let mut delegated_leave = remove_member(
-            EVE,
-            3,
-            G1,
-            GroupMember::Individual(EVE),
-            vec![create.id()],
-        );
+        let mut delegated_leave =
+            remove_member(EVE, 3, G1, GroupMember::Individual(EVE), vec![create.id()]);
         delegated_leave.authorization_actor = Some(ALICE);
-        let left = TestGroup::process(TestGroup::process(y.clone(), &create).unwrap(), &delegated_leave)
-            .unwrap();
+        let left = TestGroup::process(
+            TestGroup::process(y.clone(), &create).unwrap(),
+            &delegated_leave,
+        )
+        .unwrap();
         assert_members(&left, G1, &[(ALICE, Access::manage())]);
 
         let mut invalid_basis = add_member(
