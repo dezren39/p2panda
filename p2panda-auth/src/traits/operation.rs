@@ -20,6 +20,16 @@ where
     /// ID of the author of this operation.
     fn author(&self) -> ID;
 
+    /// Optional principal whose membership access authorizes this operation.
+    ///
+    /// The operation remains authored by [`Self::author`] for attribution and resolver rules.
+    /// Callers may return a different principal only after validating that principal as the
+    /// operation's authority in their own authorization model (for example, through a delegated
+    /// grant chain). When `None`, the author is also the authorization principal.
+    fn authorization_actor(&self) -> Option<ID> {
+        None
+    }
+
     /// Auth dependencies.
     fn dependencies(&self) -> Vec<OP>;
 

@@ -431,6 +431,56 @@ mod tests {
     }
 
     #[test]
+    fn delegated_authorization_keeps_signer_identity_for_strong_remove() {
+        // The access principal authorizes Eve's add, but Eve remains the operation author.
+        // Alice's concurrent removal of Eve must therefore filter Eve's add.
+        let y = TestGroupState::new();
+        let create = create_group(
+            ALICE,
+            0,
+            G1,
+            vec![
+                (GroupMember::Individual(ALICE), Access::manage()),
+                (GroupMember::Individual(EVE), Access::read()),
+            ],
+            vec![],
+        );
+        let mut delegated_add = add_member(
+            EVE,
+            1,
+            G1,
+            GroupMember::Individual(FRANK),
+            Access::read(),
+            vec![create.id()],
+        );
+        delegated_add.authorization_actor = Some(ALICE);
+
+        // This proves the add is admitted under Alice's authority.
+        let created = TestGroup::process(y.clone(), &create).unwrap();
+        let added = TestGroup::process(created, &delegated_add).unwrap();
+        assert_members(
+            &added,
+            G1,
+            &[
+                (ALICE, Access::manage()),
+                (EVE, Access::read()),
+                (FRANK, Access::read()),
+            ],
+        );
+
+        // Strong remove must still attribute the concurrent add to Eve, not Alice.
+        let remove_eve = remove_member(
+            ALICE,
+            2,
+            G1,
+            GroupMember::Individual(EVE),
+            vec![create.id()],
+        );
+        let resolved = sync(y, &[create, delegated_add, remove_eve]);
+        assert_members(&resolved, G1, &[(ALICE, Access::manage())]);
+    }
+
+    #[test]
     fn mutual_remove_cycles_detected() {
         //      0
         //    / | \

@@ -23,6 +23,7 @@ pub type TestGroupError = GroupCrdtError<MemberId, MessageId>;
 pub struct TestOperation {
     pub id: u32,
     pub author: char,
+    pub authorization_actor: Option<char>,
     pub dependencies: Vec<u32>,
     pub group_id: char,
     pub action: GroupAction<char, Conditions>,
@@ -35,6 +36,10 @@ impl Operation<char, u32, Conditions> for TestOperation {
 
     fn author(&self) -> char {
         self.author
+    }
+
+    fn authorization_actor(&self) -> Option<char> {
+        self.authorization_actor
     }
 
     fn dependencies(&self) -> Vec<u32> {
@@ -60,6 +65,7 @@ fn make_group_op(
     TestOperation {
         id: operation_id,
         author: actor_id,
+        authorization_actor: None,
         dependencies,
         group_id,
         action,
