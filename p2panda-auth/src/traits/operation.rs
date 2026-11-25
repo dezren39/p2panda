@@ -4,6 +4,17 @@ use p2panda_core::{Author, OperationId};
 
 use crate::group::{GroupAction, GroupMember};
 
+/// The principal whose authority was used to validate an operation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "serde"), derive(serde::Deserialize, serde::Serialize))]
+pub enum AuthorizationActor<ID> {
+    /// A group member whose access is checked by p2panda-auth at the operation's dependencies.
+    Member(ID),
+    /// The caller validated this operation through an external authorization model. The trusted
+    /// path applies only to Add/Remove; Promote/Demote still require a member principal.
+    Verified,
+}
+
 /// Interface to express required information from operations processed by any auth graph
 /// implementation.
 ///
@@ -20,14 +31,14 @@ where
     /// ID of the author of this operation.
     fn author(&self) -> ID;
 
-    /// Optional principal whose membership access authorizes this operation.
+    /// Optional principal whose authority validates this operation.
     ///
     /// The operation remains authored by [`Self::author`] for attribution and resolver rules.
-    /// Callers may return a different principal only after validating that principal as the
-    /// operation's authority in their own authorization model (for example, through a delegated
-    /// grant chain). When `None`, the author is also the authorization principal. The caller is
-    /// responsible for verifying any delegated authority before returning it here.
-    fn authorization_actor(&self) -> Option<ID> {
+    /// `Member` is checked against group access at the operation's dependencies. `Verified`
+    /// means the caller has already checked authority through another model, such as a delegated
+    /// grant chain. Callers must never return `Verified` before that check succeeds. When `None`,
+    /// the author is also the authorization principal.
+    fn authorization_actor(&self) -> Option<AuthorizationActor<ID>> {
         None
     }
 
@@ -35,7 +46,7 @@ where
     ///
     /// An actor removing themself is always treated as the author: leaving a group requires no
     /// delegated authorization and remains distinct from removing another member.
-    fn permission_actor(&self) -> ID {
+    fn permission_actor(&self) -> AuthorizationActor<ID> {
         let author = self.author();
         let is_leaving = matches!(
             self.action(),
@@ -44,9 +55,10 @@ where
             } if member == author
         );
         if is_leaving {
-            author
+            AuthorizationActor::Member(author)
         } else {
-            self.authorization_actor().unwrap_or(author)
+            self.authorization_actor()
+                .unwrap_or(AuthorizationActor::Member(author))
         }
     }
 

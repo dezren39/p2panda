@@ -16,7 +16,7 @@ use thiserror::Error;
 
 use crate::access::Access;
 use crate::group::{GroupAction, GroupMember, GroupMembersState, GroupMembershipError};
-use crate::traits::{Conditions, Operation, Resolver};
+use crate::traits::{AuthorizationActor, Conditions, Operation, Resolver};
 
 /// Max depth of group nesting allowed.
 ///
@@ -618,7 +618,8 @@ where
             }
         }
         let operation_id = operation.id();
-        let actor = operation.permission_actor();
+        let author = operation.author();
+        let permission_actor = operation.permission_actor();
         let dependencies = HashSet::from_iter(operation.dependencies().clone());
         let group_id = operation.group_id();
         let rebuild_required = RS::rebuild_required(&y.inner, operation)
@@ -648,7 +649,8 @@ where
             groups_y,
             group_id,
             operation_id,
-            actor,
+            author,
+            permission_actor,
             &operation.action(),
             &y.inner.ignore,
         )
@@ -726,6 +728,7 @@ where
             groups_y,
             operation.group_id(),
             operation.id(),
+            operation.author(),
             operation.permission_actor(),
             &operation.action(),
             &ignore,
@@ -803,7 +806,8 @@ pub(crate) fn apply_action<ID, OP, C>(
     mut groups_y: GroupStates<ID, C>,
     group_id: ID,
     id: OP,
-    actor: ID,
+    author: ID,
+    permission_actor: AuthorizationActor<ID>,
     action: &GroupAction<ID, C>,
     filter: &HashSet<OP>,
 ) -> StateChangeResult<ID, C>
@@ -826,27 +830,39 @@ where
     }
 
     let result = match action.clone() {
-        GroupAction::Add { member, access, .. } => state::add(
-            members_y.clone(),
-            GroupMember::Individual(actor),
-            member,
-            access,
-        ),
-        GroupAction::Remove { member, .. } => {
-            state::remove(members_y.clone(), GroupMember::Individual(actor), member)
-        }
-        GroupAction::Promote { member, access } => state::promote(
-            members_y.clone(),
-            GroupMember::Individual(actor),
-            member,
-            access,
-        ),
-        GroupAction::Demote { member, access } => state::demote(
-            members_y.clone(),
-            GroupMember::Individual(actor),
-            member,
-            access,
-        ),
+        GroupAction::Add { member, access, .. } => match permission_actor {
+            AuthorizationActor::Member(actor) => state::add(
+                members_y.clone(),
+                GroupMember::Individual(actor),
+                member,
+                access,
+            ),
+            AuthorizationActor::Verified => state::add_verified(members_y.clone(), member, access),
+        },
+        GroupAction::Remove { member, .. } => match permission_actor {
+            AuthorizationActor::Member(actor) => {
+                state::remove(members_y.clone(), GroupMember::Individual(actor), member)
+            }
+            AuthorizationActor::Verified => state::remove_verified(members_y.clone(), member),
+        },
+        GroupAction::Promote { member, access } => match permission_actor {
+            AuthorizationActor::Member(actor) => state::promote(
+                members_y.clone(),
+                GroupMember::Individual(actor),
+                member,
+                access,
+            ),
+            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(author)),
+        },
+        GroupAction::Demote { member, access } => match permission_actor {
+            AuthorizationActor::Member(actor) => state::demote(
+                members_y.clone(),
+                GroupMember::Individual(actor),
+                member,
+                access,
+            ),
+            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(author)),
+        },
         GroupAction::Create { initial_members } => Ok(state::create(&initial_members)),
     };
 
@@ -856,9 +872,8 @@ where
             StateChangeResult::Ok { state: groups_y }
         }
         Err(err) => {
-            // Errors occur here because the member attempting to perform an action
-            // doesn't have a suitable access level, or that the action itself is invalid
-            // (eg. promoting a non-existent member).
+            // Errors occur here because the permission actor does not have the needed access or
+            // because the action itself is invalid (for example, promoting a missing member).
             //
             // 1) We expect some errors to occur when when intentionally filtered out
             //    actions cause later operations to become invalid.

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::Access;
 use crate::group::resolver::StrongRemove;
 use crate::group::{GroupAction, GroupCrdt, GroupCrdtError, GroupCrdtState, GroupMember};
-use crate::traits::Operation;
+use crate::traits::{AuthorizationActor, Operation};
 
 pub type MemberId = char;
 pub type MessageId = u32;
@@ -23,7 +23,7 @@ pub type TestGroupError = GroupCrdtError<MemberId, MessageId>;
 pub struct TestOperation {
     pub id: u32,
     pub author: char,
-    pub authorization_actor: Option<char>,
+    pub authorization_actor: Option<AuthorizationActor<char>>,
     pub dependencies: Vec<u32>,
     pub group_id: char,
     pub action: GroupAction<char, Conditions>,
@@ -38,7 +38,7 @@ impl Operation<char, u32, Conditions> for TestOperation {
         self.author
     }
 
-    fn authorization_actor(&self) -> Option<char> {
+    fn authorization_actor(&self) -> Option<AuthorizationActor<char>> {
         self.authorization_actor
     }
 
