@@ -538,7 +538,11 @@ mod tests {
         );
         group_root_remove.authorization_actor = Some(AuthorizationActor::Verified);
         let removed = TestGroup::process(added.clone(), &group_root_remove).unwrap();
-        assert_members(&removed, G1, &[(ALICE, Access::manage()), (EVE, Access::read())]);
+        assert_members(
+            &removed,
+            G1,
+            &[(ALICE, Access::manage()), (EVE, Access::read())],
+        );
 
         // Strong remove must still attribute the externally authorized add to Eve.
         let remove_eve = remove_member(

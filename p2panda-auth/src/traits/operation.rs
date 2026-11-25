@@ -6,7 +6,10 @@ use crate::group::{GroupAction, GroupMember};
 
 /// The principal whose authority was used to validate an operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "serde"), derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub enum AuthorizationActor<ID> {
     /// A group member whose access is checked by p2panda-auth at the operation's dependencies.
     Member(ID),
