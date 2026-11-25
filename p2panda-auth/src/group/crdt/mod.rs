@@ -852,7 +852,9 @@ where
                 member,
                 access,
             ),
-            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(author)),
+            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(
+                GroupMember::Individual(author),
+            )),
         },
         GroupAction::Demote { member, access } => match permission_actor {
             AuthorizationActor::Member(actor) => state::demote(
@@ -861,7 +863,9 @@ where
                 member,
                 access,
             ),
-            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(author)),
+            AuthorizationActor::Verified => Err(GroupMembershipError::InsufficientAccess(
+                GroupMember::Individual(author),
+            )),
         },
         GroupAction::Create { initial_members } => Ok(state::create(&initial_members)),
     };
