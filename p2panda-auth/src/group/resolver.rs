@@ -372,8 +372,8 @@ mod tests {
     use crate::Access;
     use crate::group::GroupMember;
     use crate::test_utils::{
-        MemberId, TestGroupState, add_member, assert_members, create_group, demote_member,
-        remove_member, sync,
+        MemberId, TestGroup, TestGroupState, add_member, assert_members, create_group,
+        demote_member, remove_member, sync,
     };
 
     use super::*;
