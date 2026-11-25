@@ -130,7 +130,7 @@ where
                     groups_y,
                     operation.group_id(),
                     operation.id(),
-                    operation.author(),
+                    operation.permission_actor(),
                     &operation.action(),
                     &self.inner.ignore,
                 ) {

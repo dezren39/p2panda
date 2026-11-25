@@ -618,18 +618,16 @@ where
             }
         }
         let operation_id = operation.id();
-        let actor = operation.author();
+        let actor = operation.permission_actor();
         let dependencies = HashSet::from_iter(operation.dependencies().clone());
         let group_id = operation.group_id();
         let rebuild_required = RS::rebuild_required(&y.inner, operation)
             .map_err(|err| GroupCrdtError::Resolver(err.to_string()))?;
 
-        // Validate that the author of this operation had the required access rights at the point
-        // in the auth graph which they claim as their last state (the state at "dependencies").
-        // It could be that they had access at this point but concurrent changes (which we know
-        // about) mean that they have lost that access level. This case is dealt with later, here
-        // we want to catch malicious or invalid operations which should _never_ be attached to
-        // the graph.
+        // Validate that the operation's permission actor had the required access rights at the
+        // point in the auth graph which it claims as its last state (the state at "dependencies").
+        // The operation author remains unchanged in the graph for attribution and resolver rules.
+        // Callers providing a distinct permission actor must validate that delegation themselves.
         Self::validate(&y, operation)?;
         y = Self::add_operation(y, operation);
 
@@ -666,11 +664,11 @@ where
     /// they don't match the current heads.
     ///
     /// When processing a new operation we need to validate that the contained action is valid
-    /// before including it in the graph. By valid we mean that the author who composed the action
+    /// before including it in the graph. By valid we mean that the operation's permission actor
     /// had authority to perform the claimed action, and that the action fulfils all group change
-    /// requirements. To check this we need to re-build the group state to the operations claimed
-    /// previous state. This process involves pruning any operations which are not predecessors of
-    /// the new operation resolving the group state again.
+    /// requirements. The author remains the signed actor used by resolver rules. To check this we
+    /// rebuild the group state to the operations' claimed previous state, pruning operations
+    /// which are not predecessors of the new operation.
     #[allow(clippy::type_complexity)]
     pub(crate) fn validate(
         y: &GroupCrdtState<ID, OP, M, C>,
@@ -728,7 +726,7 @@ where
             groups_y,
             operation.group_id(),
             operation.id(),
-            operation.author(),
+            operation.permission_actor(),
             &operation.action(),
             &ignore,
         );

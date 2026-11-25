@@ -2,7 +2,7 @@
 
 use p2panda_core::{Author, OperationId};
 
-use crate::group::GroupAction;
+use crate::group::{GroupAction, GroupMember};
 
 /// Interface to express required information from operations processed by any auth graph
 /// implementation.
@@ -25,9 +25,29 @@ where
     /// The operation remains authored by [`Self::author`] for attribution and resolver rules.
     /// Callers may return a different principal only after validating that principal as the
     /// operation's authority in their own authorization model (for example, through a delegated
-    /// grant chain). When `None`, the author is also the authorization principal.
+    /// grant chain). When `None`, the author is also the authorization principal. The caller is
+    /// responsible for verifying any delegated authority before returning it here.
     fn authorization_actor(&self) -> Option<ID> {
         None
+    }
+
+    /// Actor whose membership access is used when applying this operation.
+    ///
+    /// An actor removing themself is always treated as the author: leaving a group requires no
+    /// delegated authorization and remains distinct from removing another member.
+    fn permission_actor(&self) -> ID {
+        let author = self.author();
+        let is_leaving = matches!(
+            self.action(),
+            GroupAction::Remove {
+                member: GroupMember::Individual(member),
+            } if member == author
+        );
+        if is_leaving {
+            author
+        } else {
+            self.authorization_actor().unwrap_or(author)
+        }
     }
 
     /// Auth dependencies.

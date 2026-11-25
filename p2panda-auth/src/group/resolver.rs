@@ -286,7 +286,7 @@ where
                 groups_y,
                 operation.group_id(),
                 operation.id(),
-                operation.author(),
+                operation.permission_actor(),
                 &operation.action(),
                 &y.ignore,
             )
@@ -468,10 +468,46 @@ mod tests {
             ],
         );
 
+        let mut delegated_remove = remove_member(
+            EVE,
+            2,
+            G1,
+            GroupMember::Individual(FRANK),
+            vec![delegated_add.id()],
+        );
+        delegated_remove.authorization_actor = Some(ALICE);
+        let removed = TestGroup::process(added.clone(), &delegated_remove).unwrap();
+        assert_members(&removed, G1, &[(ALICE, Access::manage()), (EVE, Access::read())]);
+
+        // An explicit basis cannot turn a member's leave into a manager removal.
+        let mut delegated_leave = remove_member(
+            EVE,
+            3,
+            G1,
+            GroupMember::Individual(EVE),
+            vec![create.id()],
+        );
+        delegated_leave.authorization_actor = Some(ALICE);
+        let left = TestGroup::process(TestGroup::process(y.clone(), &create).unwrap(), &delegated_leave)
+            .unwrap();
+        assert_members(&left, G1, &[(ALICE, Access::manage())]);
+
+        let mut invalid_basis = add_member(
+            EVE,
+            5,
+            G1,
+            GroupMember::Individual(FRANK),
+            Access::read(),
+            vec![create.id()],
+        );
+        invalid_basis.authorization_actor = Some(EVE);
+        let created = TestGroup::process(y.clone(), &create).unwrap();
+        assert!(TestGroup::process(created, &invalid_basis).is_err());
+
         // Strong remove must still attribute the concurrent add to Eve, not Alice.
         let remove_eve = remove_member(
             ALICE,
-            2,
+            4,
             G1,
             GroupMember::Individual(EVE),
             vec![create.id()],
